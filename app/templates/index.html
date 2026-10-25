@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DocConvert - PDF 与 Word 在线转换</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header><a class="brand" href="/">Doc<span>Convert</span></a><div class="pill">PDF ⇄ Word</div></header>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">简单 · 快速 · 文件不长期保存</div>
+      <h1>PDF 和 Word，<br><em>互相转换。</em></h1>
+      <p class="lead">上传 PDF 自动转换为 DOCX；上传 DOC/DOCX 自动转换为 PDF。</p>
+
+      <div id="drop" class="drop">
+        <div class="icon">⇧</div>
+        <h2 id="dropTitle">把文件拖到这里</h2>
+        <p>或从电脑选择文件</p>
+        <button id="choose">选择文件</button>
+        <input id="file" type="file" accept=".pdf,.doc,.docx" hidden />
+        <small>支持 PDF / DOC / DOCX · 最大 25 MB</small>
+      </div>
+
+      <div id="status" class="status hidden">
+        <div class="file-row"><div class="file-badge">DOC</div><div><strong id="name"></strong><span id="meta"></span></div></div>
+        <div class="conversion"><span id="from"></span><b>→</b><span id="to"></span></div>
+        <button id="convert" class="primary">开始转换</button>
+        <div id="progress" class="progress hidden"><div></div></div>
+        <p id="message" class="message"></p>
+        <a id="download" class="primary hidden" download>下载转换后的文件</a>
+        <button id="again" class="link hidden">转换另一个文件</button>
+      </div>
+    </section>
+
+    <section class="features">
+      <article><b>01</b><h3>自动识别</h3><p>无需复杂设置。上传文件后自动决定转换方向。</p></article>
+      <article><b>02</b><h3>临时处理</h3><p>文件仅用于当前转换，请求完成后服务器删除临时文件。</p></article>
+      <article><b>03</b><h3>保持版面</h3><p>尽可能保留文本、图片和页面结构。复杂 PDF 的效果取决于原始文件。</p></article>
+    </section>
+  </main>
+  <footer>DocConvert · PDF & Word Converter</footer>
+<script>
+const input=document.querySelector('#file'), drop=document.querySelector('#drop'), choose=document.querySelector('#choose');
+const status=document.querySelector('#status'), btn=document.querySelector('#convert'), download=document.querySelector('#download');
+const msg=document.querySelector('#message'), progress=document.querySelector('#progress'), again=document.querySelector('#again');
+let selected=null, objectUrl=null;
+choose.onclick=()=>input.click(); input.onchange=()=>setFile(input.files[0]);
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>setFile(e.dataTransfer.files[0]));
+function setFile(f){
+ if(!f)return; const ext='.'+f.name.split('.').pop().toLowerCase();
+ if(!['.pdf','.doc','.docx'].includes(ext)){alert('请选择 PDF、DOC 或 DOCX 文件');return}
+ selected=f; drop.classList.add('hidden'); status.classList.remove('hidden');
+ document.querySelector('#name').textContent=f.name; document.querySelector('#meta').textContent=(f.size/1024/1024).toFixed(2)+' MB';
+ const pdf=ext==='.pdf'; document.querySelector('#from').textContent=pdf?'PDF':'WORD'; document.querySelector('#to').textContent=pdf?'WORD (.DOCX)':'PDF';
+ document.querySelector('.file-badge').textContent=pdf?'PDF':'DOC'; resetResult();
+}
+function resetResult(){btn.classList.remove('hidden');download.classList.add('hidden');again.classList.add('hidden');progress.classList.add('hidden');msg.textContent='';}
+btn.onclick=async()=>{
+ if(!selected)return; btn.classList.add('hidden');progress.classList.remove('hidden');msg.textContent='正在转换，请稍候…';
+ const fd=new FormData();fd.append('file',selected);
+ try{const r=await fetch('/api/convert',{method:'POST',body:fd});if(!r.ok){let e=await r.json().catch(()=>({detail:'转换失败'}));throw new Error(e.detail||'转换失败')}
+ const blob=await r.blob(); if(objectUrl)URL.revokeObjectURL(objectUrl); objectUrl=URL.createObjectURL(blob);
+ const cd=r.headers.get('content-disposition')||''; let filename=selected.name.replace(/\.(pdf|docx?|DOCX?)$/i, selected.name.toLowerCase().endsWith('.pdf')?'.docx':'.pdf');
+ const m=cd.match(/filename\*=utf-8''([^;]+)/i); if(m) filename=decodeURIComponent(m[1]);
+ download.href=objectUrl;download.download=filename;download.classList.remove('hidden');again.classList.remove('hidden');progress.classList.add('hidden');msg.textContent='✓ 转换完成';
+ }catch(e){progress.classList.add('hidden');btn.classList.remove('hidden');msg.textContent='转换失败：'+e.message;}
+};
+again.onclick=()=>{selected=null;status.classList.add('hidden');drop.classList.remove('hidden');input.value='';if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}};
+</script>
+</body></html>
